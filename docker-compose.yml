@@ -1,51 +1,23 @@
-# Docker Compose file Reference (https://docs.docker.com/compose/compose-file/)
-version: '3'
+FROM node:12.2.0
 
-#Define services
-services:
+# install chrome for protractor tests
+RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add -
+RUN sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
+RUN apt-get update && apt-get install -yq google-chrome-stable
 
-  #PostgreSQL Database for the application
-  scrum-postgres:
-    image: "postgres:9.6-alpine"
-    container_name: scrum-postgres
-    #Volume mounted for database for the storage
-    volumes:
-      - scrum-data:/var/lib/postgresql/data
-    ports:
-      - 5432:5432 # Forward the exposed port 5432 on the container to port 5432 on the host machine
+# set working directory
+WORKDIR /app
 
-    #Environment variable for DB name, user and password
-    environment:
-      - POSTGRES_DB=scrum
-      - POSTGRES_USER=scrum
-      - POSTGRES_PASSWORD=scrum
+# add `/app/node_modules/.bin` to $PATH
+ENV PATH /app/node_modules/.bin:$PATH
 
-  #Back-end Spring Boot Application
-  scrum-app:
-    #The docker file in scrum-app build the jar and provides the docker image with the following name.
-    build: ./scrum-app
-    container_name: scrum-app
+# install and cache app dependencies
+COPY package.json /app/package.json
+RUN npm install
+RUN npm install -g @angular/cli@7.3.9 --unsafe
 
-    #Environment variables for Spring Boot Application.
-    environment:
-      - DB_SERVER=scrum-postgres
-      - POSTGRES_DB=scrum
-      - POSTGRES_USER=scrum
-      - POSTGRES_PASSWORD=scrum
-    ports:
-      - 8080:8080 # Forward the exposed port 8080 on the container to port 8080 on the host machine
-    links:
-      - scrum-postgres
+# add app
+COPY . /app
 
-  #Fron-end Angular Application
-  scrum-ui:
-    build: ./scrum-ui
-    container_name: scrum-ui
-    ports:
-      - 4200:80
-    links:
-      - scrum-app
-
-#Volumes for DB data
-volumes:
-  scrum-data:
+# start app
+CMD ng serve --host 0.0.0.0
